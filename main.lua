@@ -241,20 +241,44 @@ local function sendWebhook(foundPets, jobId)
     end
 end
 
-local function isTargetPet(petName)
-    if not petName or petName == "" then
+local function isTargetPet(petModel)
+    if not petModel or not petModel:IsA("Model") then
         return false
     end
-    
-    local nameLower = string.lower(petName)
+
+    local nameLower = string.lower(petModel.Name)
+
+    local isGold, isRainbow, isDiamond = false, false, false
+
+    -- Detecta raridades nas TextLabels do pet
+    for _, desc in ipairs(petModel:GetDescendants()) do
+        if desc:IsA("TextLabel") and desc.Text then
+            local text = string.lower(desc.Text)
+            if text:find("gold") then isGold = true end
+            if text:find("rainbow") then isRainbow = true end
+            if text:find("diamond") then isDiamond = true end
+        end
+    end
+
     for _, target in pairs(CONFIG.targetPets) do
         if target and target ~= "" then
             local targetLower = string.lower(target)
-            if string.find(nameLower, targetLower) or string.find(targetLower, nameLower) then
-                return true, target
+            if nameLower:find(targetLower) or targetLower:find(nameLower) then
+                local extras = {}
+                if isGold then table.insert(extras, "Gold") end
+                if isRainbow then table.insert(extras, "Rainbow") end
+                if isDiamond then table.insert(extras, "Diamond") end
+
+                local finalName = target
+                if #extras > 0 then
+                    finalName = finalName .. " (" .. table.concat(extras, ", ") .. ")"
+                end
+
+                return true, finalName
             end
         end
     end
+
     return false
 end
 
