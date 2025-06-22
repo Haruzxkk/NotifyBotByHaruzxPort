@@ -11,8 +11,9 @@ local CONFIG = {
     maxTeleportRetries = 3,
     checkInterval = 2,
     espUpdateRate = 1,
-    teleportDelay = 4,
-    petDetectionDelay = 0.25
+    teleportDelay = 3,
+    petDetectionDelay = 0.25,
+    serverFetchTimeout = 10
 }
 
 local State = {
@@ -25,7 +26,8 @@ local State = {
     isSearching = true,
     espObjects = {},
     lastCheck = 0,
-    isHopping = false
+    isHopping = false,
+    hopAttempts = 0
 }
 
 local function safeWait(duration)
@@ -58,7 +60,7 @@ local function waitForPlayer()
     
     while not Players.LocalPlayer and attempts < maxAttempts do
         task.wait(0.5)
-        attempts += 1
+        attempts = attempts + 1
     end
     
     if not Players.LocalPlayer then
@@ -294,7 +296,7 @@ local function scanForPets()
                     State.detectedPets[obj.Name] = true
                     createESP(obj, matchedTarget)
                     table.insert(found, obj.Name)
-                    newDetections += 1
+                    newDetections = newDetections + 1
                     logMessage(string.format("New target pet detected: %s", obj.Name), "SUCCESS")
                 end
             end
@@ -317,7 +319,7 @@ local function getServerList()
     local servers = {}
     local cursor = nil
     local attempts = 0
-    local maxAttempts = 3
+    local maxAttempts = 5
     
     while attempts < maxAttempts do
         local url = string.format(
@@ -329,7 +331,15 @@ local function getServerList()
         end
         
         local success, response = pcall(function()
-            return HttpService:JSONDecode(game:HttpGet(url))
+            local startTime = tick()
+            local data = game:HttpGet(url)
+            
+            -- Timeout check
+            if tick() - startTime > CONFIG.serverFetchTimeout then
+                error("Request timeout")
+            end
+            
+            return HttpService:JSONDecode(data)
         end)
         
         if success and response and response.data then
@@ -351,12 +361,13 @@ local function getServerList()
             cursor = response.nextPageCursor
             if not cursor then break end
         else
-            attempts += 1
+            attempts = attempts + 1
             logMessage(string.format("Failed to fetch servers (attempt %d/%d)", attempts, maxAttempts), "WARN")
-            task.wait(1)
+            safeWait(2)
         end
     end
     
+    -- Sort by player count (prefer less crowded servers)
     table.sort(servers, function(a, b)
         return a.playing < b.playing
     end)
@@ -368,10 +379,22 @@ function serverHop()
     if State.stopHopping or not State.isSearching or State.isHopping then
         return
     end
+    
     State.isHopping = true
-    logMessage("Searching for new server...", "INFO")
-    safeWait(CONFIG.teleportDelay)
-    State.hops += 1
+    State.hopAttempts = State.hopAttempts + 1
+    
+    logMessage(string.format("Starting server hop attempt #%d", State.hopAttempts), "INFO")
+    
+    -- Progressive delay based on attempts
+    local delay = math.min(CONFIG.teleportDelay + (State.hopAttempts * 0.5), 10)
+    safeWait(delay)
+    
+    if not State.isSearching or State.stopHopping then
+        State.isHopping = false
+        return
+    end
+    
+    State.hops = State.hops + 1
 
     if State.hops >= CONFIG.maxHopsBeforeReset then
         State.visitedJobIds = {[game.JobId] = true}
@@ -380,64 +403,110 @@ function serverHop()
     end
 
     local servers = getServerList()
-    local teleportSuccess
+    local teleportSuccess = false
 
     if #servers > 0 then
-        local targetServer = servers[math.random(1, math.min(5, #servers))]
-        State.visitedJobIds[targetServer.id] = true
-        logMessage(string.format("Teleporting to server %s (%d/%d players)",
-                  targetServer.id, targetServer.playing, targetServer.maxPlayers), "INFO")
-        teleportSuccess = pcall(function()
-            TeleportService:TeleportToPlaceInstance(game.PlaceId, targetServer.id)
-        end)
-    else
-        logMessage("No suitable servers found, using random teleport", "WARN")
-        teleportSuccess = pcall(function()
+        -- Try multiple servers if first one fails
+        local maxServerTries = math.min(3, #servers)
+        
+        for i = 1, maxServerTries do
+            local targetServer = servers[i]
+            State.visitedJobIds[targetServer.id] = true
+            
+            logMessage(string.format("Attempting teleport to server %s (%d/%d players)",
+                      targetServer.id, targetServer.playing, targetServer.maxPlayers), "INFO")
+            
+            local success, error = pcall(function()
+                TeleportService:TeleportToPlaceInstance(game.PlaceId, targetServer.id)
+            end)
+            
+            if success then
+                teleportSuccess = true
+                State.teleportFails = 0
+                break
+            else
+                logMessage(string.format("Teleport attempt %d failed: %s", i, tostring(error)), "WARN")
+                safeWait(1)
+            end
+        end
+    end
+    
+    -- Fallback to random teleport if specific server teleports failed
+    if not teleportSuccess then
+        logMessage("All specific server teleports failed, using random teleport", "WARN")
+        local success, error = pcall(function()
             TeleportService:Teleport(game.PlaceId)
         end)
+        
+        if success then
+            teleportSuccess = true
+            State.teleportFails = 0
+        else
+            logMessage("Random teleport also failed: " .. tostring(error), "ERROR")
+        end
     end
 
     if not teleportSuccess then
-        logMessage("Failed to initiate teleport", "ERROR")
+        State.teleportFails = State.teleportFails + 1
+        logMessage(string.format("All teleport attempts failed (total fails: %d)", State.teleportFails), "ERROR")
     end
 
-    -- **Crucial**: resetar a flag para permitir chamadas subsequentes
     State.isHopping = false
 end
 
-TeleportService.TeleportInitFailed:Connect(function(_, result)
-    State.teleportFails += 1
+-- Enhanced teleport failure handling
+TeleportService.TeleportInitFailed:Connect(function(player, result)
+    State.teleportFails = State.teleportFails + 1
     State.isHopping = false
+    
     local errorMessages = {
         [Enum.TeleportResult.GameFull] = "Server is full",
-        [Enum.TeleportResult.Unauthorized] = "Server is private/unauthorized",
+        [Enum.TeleportResult.Unauthorized] = "Server is private/unauthorized", 
         [Enum.TeleportResult.Flooded] = "Too many teleport requests",
-        [Enum.TeleportResult.IsTeleporting] = "Already teleporting"
+        [Enum.TeleportResult.IsTeleporting] = "Already teleporting",
+        [Enum.TeleportResult.Failure] = "General teleport failure"
     }
+    
     local message = errorMessages[result] or ("Unknown teleport error: " .. tostring(result))
     logMessage(message, "ERROR")
 
     if State.teleportFails >= CONFIG.maxTeleportRetries then
-        logMessage("Max teleport retries reached, forcing fresh start", "WARN")
+        logMessage("Max teleport retries reached, forcing complete reset", "WARN")
         State.teleportFails = 0
         State.visitedJobIds = {}
-        safeWait(2)
-        pcall(function()
-            TeleportService:Teleport(game.PlaceId)
-        end)
-    else
-        safeWait(1)
+        State.hopAttempts = 0
+        
+        safeWait(5) -- Longer wait before reset
+        
         if State.isSearching then
+            local success = pcall(function()
+                TeleportService:Teleport(game.PlaceId)
+            end)
+            
+            if not success then
+                logMessage("Emergency teleport failed, script will continue trying", "ERROR")
+                safeWait(10)
+                if State.isSearching then
+                    task.spawn(serverHop)
+                end
+            end
+        end
+    else
+        local retryDelay = math.min(2 + State.teleportFails, 10)
+        safeWait(retryDelay)
+        
+        if State.isSearching and not State.stopHopping then
             task.spawn(serverHop)
         end
     end
 end)
 
+-- Improved live detection
 workspace.DescendantAdded:Connect(function(obj)
     if not State.isSearching then return end
     
     task.spawn(function()
-        task.wait(CONFIG.petDetectionDelay)
+        safeWait(CONFIG.petDetectionDelay)
         
         if obj and obj.Parent and obj:IsA("Model") and obj.Name and obj.Name ~= "" then
             local isTarget, matchedTarget = isTargetPet(obj)
@@ -498,7 +567,7 @@ local function main()
 
     startPerformanceMonitor()
 
-    safeWait(6)
+    safeWait(8) -- Increased initial wait time
 
     local initialPets = scanForPets()
     if #initialPets > 0 then
@@ -516,14 +585,18 @@ local function main()
         logMessage("No target pets found, starting server hopping...", "INFO")
         showNotification("NotifyBot", "Searching for pets...", 3)
 
+        -- Start server hopping in a separate thread
         task.spawn(function()
+            safeWait(2) -- Small delay before starting
             while State.isSearching and not State.stopHopping do
                 serverHop()
-                safeWait(CONFIG.teleportDelay)
+                -- Wait longer between hops to avoid rate limiting
+                safeWait(CONFIG.teleportDelay + 2)
             end
         end)
     end
 
+    -- Continuous scanning thread
     task.spawn(function()
         while State.isSearching and not State.stopHopping do
             safeWait(CONFIG.checkInterval)
@@ -534,5 +607,8 @@ local function main()
         end
     end)
 end
+
+-- Handle script cleanup on game shutdown
+game:BindToClose(cleanup)
 
 main()
