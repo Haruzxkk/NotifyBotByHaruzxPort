@@ -198,7 +198,7 @@ local function sendWebhook(foundPets, jobId)
         ["color"] = 0x00FF00,
         ["timestamp"] = os.date("!%Y-%m-%dT%H:%M:%S.000Z"),
         ["footer"] = {
-            ["text"] = "NotifyBot • Enhanced Version"
+            ["text"] = "NotifyBot • 1.0 Version"
         }
     }
 
