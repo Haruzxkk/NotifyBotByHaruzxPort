@@ -77,7 +77,7 @@ local function sendWebhook(foundPets, jobId)
     -- Build embed
     local embed = {
         title       = "🧠 Pet(s) Found!",
-        description = "Brainrot-worthy pet detected in the server!",
+        description = "Pet detected in the server!",
         fields = {
             { name = "User",         value = LocalPlayer.Name },
             { name = "Found Pet(s)", value = table.concat(formattedPets, "\n") },
