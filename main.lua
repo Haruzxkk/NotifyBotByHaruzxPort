@@ -12,7 +12,7 @@ until LocalPlayer
 
 --// User Configuration from loader
 local webhook = getgenv().webhook or ""
-local targetPets = getgenv().PetNames or {}
+local targetPets = getgenv().TargetPetNames or {}
 
 --// Visited Job Tracking
 local visitedJobIds = {[game.JobId] = true}
