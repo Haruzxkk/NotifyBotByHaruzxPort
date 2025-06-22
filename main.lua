@@ -91,22 +91,47 @@ local function sendWebhook(foundPets, jobId)
         table.insert(formattedPets, count > 1 and petName .. " x" .. count or petName)
     end
 
-    local jsonData = HttpService:JSONEncode({
-    ["content"] = "🚨 SECRET PET DETECTED!",
-    ["embeds"] = {{
-        ["title"] = "🧠 Pet(s) Found!",
-        ["description"] = "Pet detected in the server!",
-        ["fields"] = {
-            { ["name"] = "User", ["value"] = LocalPlayer.Name },
-            { ["name"] = "Found Pet(s)", ["value"] = table.concat(formattedPets, "\n") },
-            { ["name"] = "Server JobId", ["value"] = jobId },
-            { ["name"] = "Time", ["value"] = os.date("%Y-%m-%d %H:%M:%S") }
-        },
-        ["color"] = 0xFF00FF
-      }}
-   })
+    local petListText = table.concat(formattedPets, "\n")
 
-    local req = http_request or request or syn and syn.request
+    local embed = {
+        ["title"] = "🚨 Pet Alert",
+        ["description"] = "**A secret/target pet was found in a server!**\nCheck details below.",
+        ["color"] = 0xFF00FF,
+        ["fields"] = {
+            {
+                ["name"] = "👤 Player",
+                ["value"] = LocalPlayer.Name,
+                ["inline"] = true
+            },
+            {
+                ["name"] = "🚀 Pet(s) Detected",
+                ["value"] = petListText,
+                ["inline"] = true
+            },
+            {
+                ["name"] = "🌐 Server JobId",
+                ["value"] = "`" .. jobId .. "`"
+            },
+            {
+                ["name"] = "⏰ Detection Time",
+                ["value"] = "<t:" .. os.time() .. ":F>"
+            }
+        },
+        ["footer"] = {
+            ["text"] = "NotifyBot - 1.0 Version"
+        }
+    }
+
+    local payload = {
+        username = "NotifyBot",
+        avatar_url = "https://i.postimg.cc/8PLg2H9S/file-00000000c9bc62308340df6809d63f45.png",
+        content = "🎯 **PET DETECTED!**",
+        embeds = { embed }
+    }
+
+    local jsonData = HttpService:JSONEncode(payload)
+
+    local req = http_request or request or (syn and syn.request)
     if req then
         local success, err = pcall(function()
             req({
