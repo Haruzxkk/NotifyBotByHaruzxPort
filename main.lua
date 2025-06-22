@@ -11,7 +11,7 @@ local CONFIG = {
     maxTeleportRetries = 3,
     checkInterval = 2,
     espUpdateRate = 1,
-    teleportDelay = 1.5,
+    teleportDelay = 4,
     petDetectionDelay = 0.25
 }
 
@@ -499,36 +499,42 @@ end
 
 local function main()
     logMessage("NotifyBot Enhanced v2.0 Started", "SUCCESS")
-    
+
     if #CONFIG.targetPets == 0 then
         logMessage("No target pets configured! Please set getgenv().PetNames", "ERROR")
         return
     end
-    
+
     logMessage(string.format("Searching for pets: %s", table.concat(CONFIG.targetPets, ", ")), "INFO")
-    
+
     startPerformanceMonitor()
-    
+
     safeWait(6)
-    
+
     local initialPets = scanForPets()
     if #initialPets > 0 then
         logMessage(string.format("Found %d target pet(s) on initial scan!", #initialPets), "SUCCESS")
-        
+
         if not State.webhookSent then
             State.webhookSent = true
             task.spawn(function()
                 sendWebhook(initialPets, game.JobId)
             end)
         end
-        
+
         showNotification("NotifyBot", "Target pets found in this server!", 10)
     else
         logMessage("No target pets found, starting server hopping...", "INFO")
         showNotification("NotifyBot", "Searching for pets...", 3)
-        task.delay(CONFIG.teleportDelay, serverHop)
+
+        task.spawn(function()
+            while State.isSearching and not State.stopHopping do
+                serverHop()
+                safeWait(CONFIG.teleportDelay)
+            end
+        end)
     end
-    
+
     task.spawn(function()
         while State.isSearching and not State.stopHopping do
             safeWait(CONFIG.checkInterval)
