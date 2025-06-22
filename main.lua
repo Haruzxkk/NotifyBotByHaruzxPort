@@ -105,7 +105,7 @@ function sendWebhook(foundPets, jobId)
     local payload = {
         username   = "NotifyBot",
         avatar_url = "https://i.postimg.cc/8PLg2H9S/file-00000000c9bc62308340df6809d63f45.png",
-        content    = "@everyone 🚨 TARGET PET DETECTED!",
+        content    = "🚨 TARGET PET DETECTED!",
         embeds     = { embed }
     }
 
