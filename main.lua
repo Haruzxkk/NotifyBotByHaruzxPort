@@ -365,74 +365,63 @@ local function getServerList()
 end
 
 function serverHop()
-    if State.stopHopping or not State.isSearching or State.isHopping then 
-        return 
+    if State.stopHopping or not State.isSearching or State.isHopping then
+        return
     end
-    
     State.isHopping = true
     logMessage("Searching for new server...", "INFO")
     safeWait(CONFIG.teleportDelay)
-    
     State.hops += 1
+
     if State.hops >= CONFIG.maxHopsBeforeReset then
         State.visitedJobIds = {[game.JobId] = true}
         State.hops = 0
         logMessage("Reset visited servers list", "INFO")
     end
-    
+
     local servers = getServerList()
-    
+    local teleportSuccess
+
     if #servers > 0 then
         local targetServer = servers[math.random(1, math.min(5, #servers))]
         State.visitedJobIds[targetServer.id] = true
-        
-        logMessage(string.format("Teleporting to server %s (%d/%d players)", 
+        logMessage(string.format("Teleporting to server %s (%d/%d players)",
                   targetServer.id, targetServer.playing, targetServer.maxPlayers), "INFO")
-        
-        State.teleportFails = 0
-        
-        local teleportSuccess = pcall(function()
+        teleportSuccess = pcall(function()
             TeleportService:TeleportToPlaceInstance(game.PlaceId, targetServer.id)
         end)
-        
-        if not teleportSuccess then
-            logMessage("Failed to initiate teleport", "ERROR")
-            State.isHopping = false
-        end
     else
         logMessage("No suitable servers found, using random teleport", "WARN")
-        
-        local teleportSuccess = pcall(function()
+        teleportSuccess = pcall(function()
             TeleportService:Teleport(game.PlaceId)
         end)
-        
-        if not teleportSuccess then
-            logMessage("Failed to initiate random teleport", "ERROR")
-            State.isHopping = false
-        end
     end
+
+    if not teleportSuccess then
+        logMessage("Failed to initiate teleport", "ERROR")
+    end
+
+    -- **Crucial**: resetar a flag para permitir chamadas subsequentes
+    State.isHopping = false
 end
 
 TeleportService.TeleportInitFailed:Connect(function(_, result)
     State.teleportFails += 1
     State.isHopping = false
-    
     local errorMessages = {
         [Enum.TeleportResult.GameFull] = "Server is full",
         [Enum.TeleportResult.Unauthorized] = "Server is private/unauthorized",
         [Enum.TeleportResult.Flooded] = "Too many teleport requests",
         [Enum.TeleportResult.IsTeleporting] = "Already teleporting"
     }
-    
-    local message = errorMessages[result] or "Unknown teleport error: " .. tostring(result)
+    local message = errorMessages[result] or ("Unknown teleport error: " .. tostring(result))
     logMessage(message, "ERROR")
-    
+
     if State.teleportFails >= CONFIG.maxTeleportRetries then
         logMessage("Max teleport retries reached, forcing fresh start", "WARN")
         State.teleportFails = 0
         State.visitedJobIds = {}
         safeWait(2)
-        
         pcall(function()
             TeleportService:Teleport(game.PlaceId)
         end)
