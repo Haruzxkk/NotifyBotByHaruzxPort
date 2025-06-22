@@ -459,8 +459,6 @@ local function cleanup()
     logMessage("NotifyBot stopped and cleaned up", "INFO")
 end
 
-game:BindToClose(cleanup)
-
 local function startPerformanceMonitor()
     task.spawn(function()
         while State.isSearching do
