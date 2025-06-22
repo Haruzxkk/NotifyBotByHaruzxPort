@@ -608,7 +608,4 @@ local function main()
     end)
 end
 
--- Handle script cleanup on game shutdown
-game:BindToClose(cleanup)
-
 main()
