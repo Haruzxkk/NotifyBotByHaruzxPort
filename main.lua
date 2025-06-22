@@ -289,7 +289,7 @@ local function scanForPets()
     local success = pcall(function()
         for _, obj in pairs(workspace:GetDescendants()) do
             if obj:IsA("Model") and obj.Name and obj.Name ~= "" and obj.Parent then
-                local isTarget, matchedTarget = isTargetPet(obj.Name)
+                local isTarget, matchedTarget = isTargetPet(obj)
                 if isTarget and not State.detectedPets[obj.Name] then
                     State.detectedPets[obj.Name] = true
                     createESP(obj, matchedTarget)
@@ -451,7 +451,7 @@ workspace.DescendantAdded:Connect(function(obj)
         task.wait(CONFIG.petDetectionDelay)
         
         if obj and obj.Parent and obj:IsA("Model") and obj.Name and obj.Name ~= "" then
-            local isTarget, matchedTarget = isTargetPet(obj.Name)
+            local isTarget, matchedTarget = isTargetPet(obj)
             if isTarget and not State.detectedPets[obj.Name] then
                 State.detectedPets[obj.Name] = true
                 createESP(obj, matchedTarget)
