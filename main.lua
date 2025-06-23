@@ -1,4 +1,3 @@
---// Services
 local Players = game:GetService("Players")
 local HttpService = game:GetService("HttpService")
 local TeleportService = game:GetService("TeleportService")
@@ -11,7 +10,7 @@ repeat
 until LocalPlayer
 
 --// User Configuration from loader
-local webhook = getgenv().webhook or ""
+local webhooks = getgenv().webhooks or {} -- Mudança: agora é uma tabela de webhooks
 local targetPets = getgenv().TargetPetNames or {}
 
 --// Visited Job Tracking
@@ -39,14 +38,14 @@ TeleportService.TeleportInitFailed:Connect(function(_, result)
         warn("❌ Other teleport error:", result)
     end
 
-    if teleportFails >= maxTeleportRetries then
-        warn("⚠️ Too many teleport fails. Forcing fresh server...")
-        teleportFails = 0
-        task.wait(1)
-        TeleportService:Teleport(game.PlaceId)
-    else
-        task.wait(1)
-        serverHop()
+    if teleportFails >= maxTeleportRetries then  
+        warn("⚠️ Too many teleport fails. Forcing fresh server...")  
+        teleportFails = 0  
+        task.wait(1)  
+        TeleportService:Teleport(game.PlaceId)  
+    else  
+        task.wait(1)  
+        serverHop()  
     end
 end)
 
@@ -61,103 +60,102 @@ local function addESP(targetModel)
     Billboard.AlwaysOnTop = true
     Billboard.Parent = targetModel
 
-    local Label = Instance.new("TextLabel")
-    Label.Size = UDim2.new(1, 0, 1, 0)
-    Label.BackgroundTransparency = 1
-    Label.Text = "🎯 Target Pet"
-    Label.TextColor3 = Color3.fromRGB(255, 0, 0)
-    Label.TextStrokeTransparency = 0.5
-    Label.Font = Enum.Font.SourceSansBold
-    Label.TextScaled = true
+    local Label = Instance.new("TextLabel")  
+    Label.Size = UDim2.new(1, 0, 1, 0)  
+    Label.BackgroundTransparency = 1  
+    Label.Text = "🎯 Target Pet"  
+    Label.TextColor3 = Color3.fromRGB(255, 0, 0)  
+    Label.TextStrokeTransparency = 0.5  
+    Label.Font = Enum.Font.SourceSansBold  
+    Label.TextScaled = true  
     Label.Parent = Billboard
 end
 
+--// Modified Webhook Function for Multiple Webhooks
 local function sendWebhook(foundPets, jobId)
-    local webhookList = {}
-
-    if type(webhook) == "table" then
-        webhookList = webhook
-    elseif type(webhook) == "string" and webhook ~= "" then
-        table.insert(webhookList, webhook)
-    else
-        warn("⚠️ Nenhuma webhook válida configurada.")
+    if #webhooks == 0 then
+        warn("⚠️ No webhooks configured, skipping notification.")
         return
     end
 
-    local petCounts = {}
-    for _, pet in ipairs(foundPets) do
-        if pet then
-            petCounts[pet] = (petCounts[pet] or 0) + 1
+    local petCounts = {}  
+    for _, pet in ipairs(foundPets) do  
+        if pet then  
+            petCounts[pet] = (petCounts[pet] or 0) + 1  
+        end  
+    end  
+
+    local formattedPets = {}  
+    for petName, count in pairs(petCounts) do  
+        table.insert(formattedPets, count > 1 and petName .. " x" .. count or petName)  
+    end  
+
+    local petListText = table.concat(formattedPets, "\n")  
+
+    local embed = {  
+        ["title"] = "🚨 Pet Alert",  
+        ["description"] = "**A secret/target pet was found in a server!**\nCheck details below.",  
+        ["color"] = 0xFF00FF,  
+        ["fields"] = {  
+            {  
+                ["name"] = "👤 Player",  
+                ["value"] = LocalPlayer.Name,  
+                ["inline"] = true  
+            },  
+            {  
+                ["name"] = "🚀 Pet(s) Detected",  
+                ["value"] = petListText,  
+                ["inline"] = true  
+            },  
+            {  
+                ["name"] = "🌐 Server JobId",  
+                ["value"] = "`" .. jobId .. "`"  
+            },  
+            {  
+                ["name"] = "⏰ Detection Time",  
+                ["value"] = "<t:" .. os.time() .. ":F>"  
+            }  
+        },  
+        ["footer"] = {  
+            ["text"] = "NotifyBot - 1.0 Version"  
+        }  
+    }  
+
+    local payload = {  
+        username = "NotifyBot",  
+        avatar_url = "https://i.postimg.cc/8PLg2H9S/file-00000000c9bc62308340df6809d63f45.png",  
+        content = "🎯 **PET DETECTED!**",  
+        embeds = { embed }  
+    }  
+
+    local jsonData = HttpService:JSONEncode(payload)  
+
+    -- Enviar para todos os webhooks simultaneamente
+    local req = http_request or request or (syn and syn.request)  
+    if req then  
+        for i, webhook in ipairs(webhooks) do
+            if webhook and webhook ~= "" then
+                spawn(function() -- Usar spawn para executar simultaneamente
+                    local success, err = pcall(function()  
+                        req({  
+                            Url = webhook,  
+                            Method = "POST",  
+                            Headers = { ["Content-Type"] = "application/json" },  
+                            Body = jsonData  
+                        })  
+                    end)  
+                    if success then  
+                        print("✅ Webhook #" .. i .. " sent successfully.")  
+                    else  
+                        warn("❌ Failed to send webhook #" .. i .. ":", err)  
+                    end
+                end)
+            end
         end
+    else  
+        warn("❌ Executor doesn't support HTTP requests.")  
     end
-
-    local formattedPets = {}
-    for petName, count in pairs(petCounts) do
-        table.insert(formattedPets, count > 1 and petName .. " x" .. count or petName)
-    end
-
-    local petListText = table.concat(formattedPets, "\n")
-
-    local embed = {
-        ["title"] = "🚨 Pet Alert",
-        ["description"] = "A secret/target pet was found in a server!\nCheck details below.",
-        ["color"] = 0xFF00FF,
-        ["fields"] = {
-            {
-                ["name"] = "👤 Player",
-                ["value"] = LocalPlayer.Name,
-                ["inline"] = true
-            },
-            {
-                ["name"] = "🚀 Pet(s) Detected",
-                ["value"] = petListText,
-                ["inline"] = true
-            },
-            {
-                ["name"] = "🌐 Server JobId",
-                ["value"] = jobId
-            },
-            {
-                ["name"] = "⏰ Detection Time",
-                ["value"] = "<t:" .. os.time() .. ":F>"
-            }
-        },
-        ["footer"] = {
-            ["text"] = "NotifyBot - 1.0 Version"
-        }
-    }
-
-    local payload = {
-        username = "NotifyBot",
-        avatar_url = "https://i.postimg.cc/8PLg2H9S/file-00000000c9bc62308340df6809d63f45.png",
-        content = "🎯 PET DETECTED!",
-        embeds = { embed }
-    }
-
-    local jsonData = HttpService:JSONEncode(payload)
-
-    local req = http_request or request or (syn and syn.request)
-    if not req then
-        warn("❌ Executor não suporta requisições HTTP.")
-        return
-    end
-
-    for _, url in ipairs(webhookList) do
-        local success, err = pcall(function()
-            req({
-                Url = url,
-                Method = "POST",
-                Headers = { ["Content-Type"] = "application/json" },
-                Body = jsonData
-            })
-        end)
-
-        if success then
-            print("✅ Webhook enviada para:", url)
-        else
-            warn("❌ Erro ao enviar webhook:", err)
-        end
-    end
+end
 
 --// Pet Detection Function
 local function checkForPets()
@@ -183,57 +181,57 @@ function serverHop()
     if stopHopping then return end
     task.wait(1.5)
 
-    local cursor = nil
-    local PlaceId, JobId = game.PlaceId, game.JobId
-    local tries = 0
+    local cursor = nil  
+    local PlaceId, JobId = game.PlaceId, game.JobId  
+    local tries = 0  
 
-    hops += 1
-    if hops >= maxHopsBeforeReset then
-        visitedJobIds = {[JobId] = true}
-        hops = 0
-        print("♻️ Resetting visited JobIds.")
-    end
+    hops += 1  
+    if hops >= maxHopsBeforeReset then  
+        visitedJobIds = {[JobId] = true}  
+        hops = 0  
+        print("♻️ Resetting visited JobIds.")  
+    end  
 
-    while tries < 3 do
-        local url = "https://games.roblox.com/v1/games/" .. PlaceId .. "/servers/Public?sortOrder=Asc&limit=100"
-        if cursor then url = url .. "&cursor=" .. cursor end
+    while tries < 3 do  
+        local url = "https://games.roblox.com/v1/games/" .. PlaceId .. "/servers/Public?sortOrder=Asc&limit=100"  
+        if cursor then url = url .. "&cursor=" .. cursor end  
 
-        local success, response = pcall(function()
-            return HttpService:JSONDecode(game:HttpGet(url))
-        end)
+        local success, response = pcall(function()  
+            return HttpService:JSONDecode(game:HttpGet(url))  
+        end)  
 
-        if success and response and response.data then
-            local servers = {}
-            for _, server in ipairs(response.data) do
-                if tonumber(server.playing or 0) < tonumber(server.maxPlayers or 1)
-                    and server.id ~= JobId
-                    and not visitedJobIds[server.id] then
-                        table.insert(servers, server.id)
-                end
-            end
+        if success and response and response.data then  
+            local servers = {}  
+            for _, server in ipairs(response.data) do  
+                if tonumber(server.playing or 0) < tonumber(server.maxPlayers or 1)  
+                    and server.id ~= JobId  
+                    and not visitedJobIds[server.id] then  
+                        table.insert(servers, server.id)  
+                end  
+            end  
 
-            if #servers > 0 then
-                local picked = servers[math.random(1, #servers)]
-                print("✅ Hopping to server:", picked)
-                teleportFails = 0
-                TeleportService:TeleportToPlaceInstance(PlaceId, picked)
-                return
-            end
+            if #servers > 0 then  
+                local picked = servers[math.random(1, #servers)]  
+                print("✅ Hopping to server:", picked)  
+                teleportFails = 0  
+                TeleportService:TeleportToPlaceInstance(PlaceId, picked)  
+                return  
+            end  
 
-            cursor = response.nextPageCursor
-            if not cursor then
-                tries += 1
-                cursor = nil
-                task.wait(0.5)
-            end
-        else
-            warn("⚠️ Failed to fetch server list. Retrying...")
-            tries += 1
-            task.wait(0.5)
-        end
-    end
+            cursor = response.nextPageCursor  
+            if not cursor then  
+                tries += 1  
+                cursor = nil  
+                task.wait(0.5)  
+            end  
+        else  
+            warn("⚠️ Failed to fetch server list. Retrying...")  
+            tries += 1  
+            task.wait(0.5)  
+        end  
+    end  
 
-    warn("❌ No valid servers found. Forcing random teleport...")
+    warn("❌ No valid servers found. Forcing random teleport...")  
     TeleportService:Teleport(PlaceId)
 end
 
