@@ -73,12 +73,12 @@ local function addESP(targetModel)
 end
 
 local function sendWebhook(foundPets, jobId)
-    local webhooks = {}
+    local webhookList = {}
 
     if type(webhook) == "table" then
-        webhooks = webhook
+        webhookList = webhook
     elseif type(webhook) == "string" and webhook ~= "" then
-        table.insert(webhooks, webhook)
+        table.insert(webhookList, webhook)
     else
         warn("⚠️ Nenhuma webhook válida configurada.")
         return
@@ -100,7 +100,7 @@ local function sendWebhook(foundPets, jobId)
 
     local embed = {
         ["title"] = "🚨 Pet Alert",
-        ["description"] = "**A secret/target pet was found in a server!**\nCheck details below.",
+        ["description"] = "A secret/target pet was found in a server!\nCheck details below.",
         ["color"] = 0xFF00FF,
         ["fields"] = {
             {
@@ -115,7 +115,7 @@ local function sendWebhook(foundPets, jobId)
             },
             {
                 ["name"] = "🌐 Server JobId",
-                ["value"] = "`" .. jobId .. "`"
+                ["value"] = jobId
             },
             {
                 ["name"] = "⏰ Detection Time",
@@ -130,19 +130,19 @@ local function sendWebhook(foundPets, jobId)
     local payload = {
         username = "NotifyBot",
         avatar_url = "https://i.postimg.cc/8PLg2H9S/file-00000000c9bc62308340df6809d63f45.png",
-        content = "🎯 **PET DETECTED!**",
+        content = "🎯 PET DETECTED!",
         embeds = { embed }
     }
 
     local jsonData = HttpService:JSONEncode(payload)
-    local req = http_request or request or (syn and syn.request)
 
+    local req = http_request or request or (syn and syn.request)
     if not req then
-        warn("❌ Seu executor não suporta requisições HTTP.")
+        warn("❌ Executor não suporta requisições HTTP.")
         return
     end
 
-    for _, url in ipairs(webhooks) do
+    for _, url in ipairs(webhookList) do
         local success, err = pcall(function()
             req({
                 Url = url,
@@ -155,7 +155,7 @@ local function sendWebhook(foundPets, jobId)
         if success then
             print("✅ Webhook enviada para:", url)
         else
-            warn("❌ Falha ao enviar webhook:", url, err)
+            warn("❌ Erro ao enviar webhook:", err)
         end
     end
 
