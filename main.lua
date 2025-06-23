@@ -72,12 +72,15 @@ local function addESP(targetModel)
     Label.Parent = Billboard
 end
 
---// Webhook Function
 local function sendWebhook(foundPets, jobId)
-    local webhooks = type(webhook) == "table" and webhook or { webhook }
+    local webhooks = {}
 
-    if #webhooks == 0 or webhooks[1] == "" then
-        warn("⚠️ Nenhuma webhook configurada. Pulando notificação.")
+    if type(webhook) == "table" then
+        webhooks = webhook
+    elseif type(webhook) == "string" and webhook ~= "" then
+        table.insert(webhooks, webhook)
+    else
+        warn("⚠️ Nenhuma webhook válida configurada.")
         return
     end
 
@@ -120,7 +123,7 @@ local function sendWebhook(foundPets, jobId)
             }
         },
         ["footer"] = {
-            ["text"] = "NotifyBot - 1.2 Version"
+            ["text"] = "NotifyBot - 1.0 Version"
         }
     }
 
@@ -134,24 +137,25 @@ local function sendWebhook(foundPets, jobId)
     local jsonData = HttpService:JSONEncode(payload)
     local req = http_request or request or (syn and syn.request)
 
-    for _, url in ipairs(webhooks) do
-        if req then
-            local success, err = pcall(function()
-                req({
-                    Url = url,
-                    Method = "POST",
-                    Headers = { ["Content-Type"] = "application/json" },
-                    Body = jsonData
-                })
-            end)
+    if not req then
+        warn("❌ Seu executor não suporta requisições HTTP.")
+        return
+    end
 
-            if success then
-                print("✅ Webhook enviada para:", url)
-            else
-                warn("❌ Falha ao enviar webhook:", url, err)
-            end
+    for _, url in ipairs(webhooks) do
+        local success, err = pcall(function()
+            req({
+                Url = url,
+                Method = "POST",
+                Headers = { ["Content-Type"] = "application/json" },
+                Body = jsonData
+            })
+        end)
+
+        if success then
+            print("✅ Webhook enviada para:", url)
         else
-            warn("❌ Executor não suporta requisições HTTP.")
+            warn("❌ Falha ao enviar webhook:", url, err)
         end
     end
 
