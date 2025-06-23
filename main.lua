@@ -105,7 +105,7 @@ local function sendWebhook(foundPets, jobId)
 
         local embed = {  
             ["title"] = "🚨 Pet Alert",  
-            ["description"] = "**A secret/target pet was found in a server!**\nCheck details below.\n\n🔗 [Join Our Official Server](https://discord.gg/5UGc3m7Nnc)",  
+            ["description"] = "**A secret/target pet was found in a server!**\nCheck details below.",  
             ["color"] = 0xFF00FF,  
             ["fields"] = {  
                 {  
