@@ -106,11 +106,16 @@ local function sendWebhook(foundPets, jobId)
                 ["name"] = "🚀 Pet(s) Detected",  
                 ["value"] = petListText,  
                 ["inline"] = true  
-            },  
+            }, 
             {  
                 ["name"] = "🌐 Server JobId",  
                 ["value"] = "`" .. jobId .. "`"  
             },  
+            {  
+                ["name"] = "📢 Official Server",  
+                ["value"] = https://discord.gg/5UGc3m7Nnc,  
+                ["inline"] = true  
+            },   
             {  
                 ["name"] = "⏰ Detection Time",  
                 ["value"] = "<t:" .. os.time() .. ":F>"  
