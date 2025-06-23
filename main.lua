@@ -10,7 +10,7 @@ repeat
 until LocalPlayer
 
 --// User Configuration from loader
-local webhooks = getgenv().webhooks or {} 
+local webhooks = getgenv().webhooks or {}
 local targetPets = getgenv().TargetPetNames or {}
 
 --// Visited Job Tracking
@@ -94,7 +94,7 @@ local function sendWebhook(foundPets, jobId)
 
     local embed = {  
         ["title"] = "🚨 Pet Alert",  
-        ["description"] = "**A secret/target pet was found in a server!**\nCheck details below.",  
+        ["description"] = "**A secret/target pet was found in a server!**\nCheck details below.\n\n🔗 [Join Our Official Server](https://discord.gg/5UGc3m7Nnc)",  
         ["color"] = 0xFF00FF,  
         ["fields"] = {  
             {  
@@ -106,20 +106,20 @@ local function sendWebhook(foundPets, jobId)
                 ["name"] = "🚀 Pet(s) Detected",  
                 ["value"] = petListText,  
                 ["inline"] = true  
-            }, 
+            },  
             {  
                 ["name"] = "🌐 Server JobId",  
                 ["value"] = "`" .. jobId .. "`"  
             },  
             {  
-                ["name"] = "📢 Official Server",  
-                ["value"] = https://discord.gg/5UGc3m7Nnc,  
-                ["inline"] = true  
-            },   
-            {  
                 ["name"] = "⏰ Detection Time",  
                 ["value"] = "<t:" .. os.time() .. ":F>"  
-            }  
+            },
+            {
+                ["name"] = "🎮 Server Official",
+                ["value"] = "[Click here to join our Discord!](https://discord.gg/5UGc3m7Nnc)",
+                ["inline"] = false
+            }
         },  
         ["footer"] = {  
             ["text"] = "NotifyBot - 1.2 Version"  
