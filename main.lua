@@ -117,7 +117,7 @@ local function sendWebhook(foundPets, jobId)
             }  
         },  
         ["footer"] = {  
-            ["text"] = "NotifyBot - 1.0 Version"  
+            ["text"] = "NotifyBot - 1.2 Version"  
         }  
     }  
 
