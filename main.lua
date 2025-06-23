@@ -74,8 +74,10 @@ end
 
 --// Webhook Function
 local function sendWebhook(foundPets, jobId)
-    if webhook == "" then
-        warn("⚠️ Webhook is empty, skipping notification.")
+    local webhooks = type(webhook) == "table" and webhook or { webhook }
+
+    if #webhooks == 0 or webhooks[1] == "" then
+        warn("⚠️ Nenhuma webhook configurada. Pulando notificação.")
         return
     end
 
@@ -118,7 +120,7 @@ local function sendWebhook(foundPets, jobId)
             }
         },
         ["footer"] = {
-            ["text"] = "NotifyBot - 1.0 Version"
+            ["text"] = "NotifyBot - 1.2 Version"
         }
     }
 
@@ -130,26 +132,28 @@ local function sendWebhook(foundPets, jobId)
     }
 
     local jsonData = HttpService:JSONEncode(payload)
-
     local req = http_request or request or (syn and syn.request)
-    if req then
-        local success, err = pcall(function()
-            req({
-                Url = webhook,
-                Method = "POST",
-                Headers = { ["Content-Type"] = "application/json" },
-                Body = jsonData
-            })
-        end)
-        if success then
-            print("✅ Webhook sent.")
+
+    for _, url in ipairs(webhooks) do
+        if req then
+            local success, err = pcall(function()
+                req({
+                    Url = url,
+                    Method = "POST",
+                    Headers = { ["Content-Type"] = "application/json" },
+                    Body = jsonData
+                })
+            end)
+
+            if success then
+                print("✅ Webhook enviada para:", url)
+            else
+                warn("❌ Falha ao enviar webhook:", url, err)
+            end
         else
-            warn("❌ Failed to send webhook:", err)
+            warn("❌ Executor não suporta requisições HTTP.")
         end
-    else
-        warn("❌ Executor doesn't support HTTP requests.")
     end
-end
 
 --// Pet Detection Function
 local function checkForPets()
