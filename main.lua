@@ -10,7 +10,7 @@ repeat
 until LocalPlayer
 
 --// User Configuration from loader
-local webhooks = getgenv().webhooks or {} -- Mudança: agora é uma tabela de webhooks
+local webhooks = getgenv().webhooks or {} 
 local targetPets = getgenv().TargetPetNames or {}
 
 --// Visited Job Tracking
