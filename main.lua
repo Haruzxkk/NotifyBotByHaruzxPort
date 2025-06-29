@@ -2,35 +2,28 @@ local Players = game:GetService("Players")
 local HttpService = game:GetService("HttpService")
 local TeleportService = game:GetService("TeleportService")
 
--- Wait for LocalPlayer to initialize
 local LocalPlayer
 repeat
     LocalPlayer = Players.LocalPlayer
     task.wait()
 until LocalPlayer
 
---// User Configuration from loader
 local webhooks = getgenv().webhooks or {}
 local targetPets = getgenv().TargetPetNames or {}
 
--- Debug print
 print("🔧 NotifyBot initialized with", #webhooks, "webhooks and", #targetPets, "target pets")
 
---// Visited Job Tracking
 local visitedJobIds = {[game.JobId] = true}
 local hops = 0
 local maxHopsBeforeReset = 50
 
---// Teleport Fail Handling
 local teleportFails = 0
 local maxTeleportRetries = 3
 
---// Found Pet Cache
 local detectedPets = {}
 local webhookSent = false
 local stopHopping = false
 
--- Error handling for teleport failures
 TeleportService.TeleportInitFailed:Connect(function(_, result)
     teleportFails += 1
     if result == Enum.TeleportResult.GameFull then
@@ -55,12 +48,11 @@ TeleportService.TeleportInitFailed:Connect(function(_, result)
     end
 end)
 
---// ESP Function with error handling
 local function addESP(targetModel)
     pcall(function()
         if not targetModel or not targetModel.Parent then return end
         if targetModel:FindFirstChild("PetESP") then return end
-        
+
         local Billboard = Instance.new("BillboardGui")
         Billboard.Name = "PetESP"
         Billboard.Adornee = targetModel
@@ -72,7 +64,7 @@ local function addESP(targetModel)
         local Label = Instance.new("TextLabel")  
         Label.Size = UDim2.new(1, 0, 1, 0)  
         Label.BackgroundTransparency = 1  
-        Label.Text = "🎯 Target Pet"  
+        Label.Text = "🎯 " .. targetModel.Name .. "  -- ← Aqui está o nome do pet
         Label.TextColor3 = Color3.fromRGB(255, 0, 0)  
         Label.TextStrokeTransparency = 0.5  
         Label.Font = Enum.Font.SourceSansBold  
@@ -81,7 +73,6 @@ local function addESP(targetModel)
     end)
 end
 
---// Enhanced Webhook Function with better error handling
 local function sendWebhook(foundPets, jobId)
     if #webhooks == 0 then
         warn("⚠️ No webhooks configured, skipping notification.")
@@ -146,7 +137,6 @@ local function sendWebhook(foundPets, jobId)
 
         local jsonData = HttpService:JSONEncode(payload)  
 
-        -- Send to all webhooks simultaneously
         local req = http_request or request or (syn and syn.request)  
         if req then  
             for i, webhook in ipairs(webhooks) do
@@ -172,13 +162,12 @@ local function sendWebhook(foundPets, jobId)
             warn("❌ Executor doesn't support HTTP requests.")  
         end
     end)
-    
+
     if not success then
         warn("❌ Error in sendWebhook function:", result)
     end
 end
 
---// Pet Detection Function with improved error handling
 local function checkForPets()
     local found = {}
     pcall(function()
@@ -199,10 +188,9 @@ local function checkForPets()
     return found
 end
 
---// Server Hop Function with enhanced error handling
 function serverHop()
     if stopHopping then return end
-    
+
     local success, result = pcall(function()
         task.wait(1.5)
 
@@ -259,7 +247,7 @@ function serverHop()
         warn("❌ No valid servers found. Forcing random teleport...")  
         TeleportService:Teleport(PlaceId)
     end)
-    
+
     if not success then
         warn("❌ Error in serverHop function:", result)
         task.wait(2)
@@ -269,7 +257,6 @@ function serverHop()
     end
 end
 
---// Live Detection for Pets with error handling
 workspace.DescendantAdded:Connect(function(obj)
     pcall(function()
         task.wait(0.25)
@@ -294,7 +281,6 @@ workspace.DescendantAdded:Connect(function(obj)
     end)
 end)
 
---// Start with error handling
 pcall(function()
     task.wait(6)
     print("🔍 Starting pet detection...")
