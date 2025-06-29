@@ -64,7 +64,7 @@ local function addESP(targetModel)
         local Label = Instance.new("TextLabel")  
         Label.Size = UDim2.new(1, 0, 1, 0)  
         Label.BackgroundTransparency = 1  
-        Label.Text = "🎯 " .. targetModel.Name .. "  -- ← Aqui está o nome do pet
+        Label.Text = "🎯 (" .. targetModel.Name .. ")"  -- ← Aqui está o nome do pet
         Label.TextColor3 = Color3.fromRGB(255, 0, 0)  
         Label.TextStrokeTransparency = 0.5  
         Label.Font = Enum.Font.SourceSansBold  
